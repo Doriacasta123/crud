@@ -1,44 +1,45 @@
+
 const express = require('express');
 const router = express.Router();
-const User = require('../../models/User'); 
+const pool = require('../../db');
+
 
 router.get('/', async (req, res) => {
     try {
-        const users = await User.find();
+        const [users] = await pool.query('SELECT * FROM users');
         res.json(users);
     } catch (err) {
         res.status(500).json({ error: 'Error al obtener los usuarios' });
     }
 });
 
+
 router.post('/', async (req, res) => {
     try {
-        const newUser = new User(req.body);
-        await newUser.save();
-        res.status(201).json(newUser);
+        const { nombre, email } = req.body;
+        const [result] = await pool.query('INSERT INTO users (nombre, email) VALUES (?, ?)', [nombre, email]);
+        res.status(201).json({ id: result.insertId, nombre, email });
     } catch (err) {
-        console.error(err); 
-        res.status(400).json({ error: 'Error al crear el usuario' });
+        res.status(400).json({ error: 'Error para crear el usuario' });
     }
 });
 
 
-
 router.put('/:id', async (req, res) => {
     try {
-        const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
-        if (!updatedUser) return res.status(404).json({ error: 'Usuario no encontrado' });
-        res.json(updatedUser);
+        const { nombre, email } = req.body;
+        const [result] = await pool.query('UPDATE users SET nombre = ?, email = ? WHERE id = ?', [nombre, email, req.params.id]);
+        if (result.affectedRows === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+        res.json({ id: req.params.id, nombre, email });
     } catch (err) {
         res.status(500).json({ error: 'Error al actualizar el usuario' });
     }
 });
 
-
 router.delete('/:id', async (req, res) => {
     try {
-        const deletedUser = await User.findByIdAndDelete(req.params.id);
-        if (!deletedUser) return res.status(404).json({ error: 'Usuario no encontrado' });
+        const [result] = await pool.query('DELETE FROM users WHERE id = ?', [req.params.id]);
+        if (result.affectedRows === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
         res.json({ message: 'Usuario eliminado' });
     } catch (err) {
         res.status(500).json({ error: 'Error al eliminar el usuario' });
